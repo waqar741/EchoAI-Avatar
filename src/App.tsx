@@ -370,7 +370,6 @@ export default function App() {
         return "I'm listening, how can I help?";
     };
 
-    const isAudioActive = status === "listening" || status === "speaking";
     const isActive = status !== "ready";
 
     return (

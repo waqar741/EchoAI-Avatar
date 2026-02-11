@@ -20,6 +20,7 @@ import { useVoiceInput } from "./hooks/useVoiceInput";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 import { useChatAPI } from "./hooks/useChatAPI";
 import { useChatStore } from "./store/chatStore";
+import { useTheme } from "./hooks/useTheme";
 import type { ChatMessage } from "./types";
 
 const MemoAvatar = memo(Avatar);
@@ -27,6 +28,9 @@ const MemoAvatar = memo(Avatar);
 export default function App() {
     const tts = useSpeechSynthesis();
     const api = useChatAPI();
+
+    // Apply theme
+    useTheme();
 
     const status = useChatStore((s) => s.status);
     const setStatus = useChatStore((s) => s.setStatus);
@@ -79,6 +83,28 @@ export default function App() {
         }
         return null;
     });
+
+    // Hydrate chat store from active session on mount
+    useEffect(() => {
+        if (activeSessionId) {
+            const session = sessions.find(s => s.id === activeSessionId);
+            if (session && session.messages.length > 0) {
+                // We need to populate the store with the saved messages
+                // useChatStore is created outside, so we can access getState()
+                useChatStore.getState().clearMessages();
+                // We can't batch these easily with the current store API, but it's fine for init
+                // Better approach: directly set messages if store allowed it, but addMessage is ok
+                // Actually, let's use a small timeout to ensure store is ready if needed, 
+                // though usually synchronous is fine. 
+                // To avoid multiple re-renders, we could add a `setMessages` to store, 
+                // but `addMessage` works.
+                session.messages.forEach(msg => {
+                    useChatStore.getState().addMessage(msg.role, msg.content);
+                });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
 
     /* ─── Get last message for display ─── */
     const lastMessage = messages.slice(-1)[0]?.content;
@@ -402,6 +428,7 @@ export default function App() {
             <Navbar
                 isSidebarOpen={isSidebarOpen}
                 onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                onHome={() => setShowChatView(false)}
                 voices={tts.voices}
                 selectedVoiceName={tts.voiceConfig.voice?.name ?? ""}
                 rate={tts.voiceConfig.rate}
@@ -424,13 +451,13 @@ export default function App() {
                         relative flex items-center justify-center
                         w-80 h-32 px-8
                         rounded-3xl
-                        bg-white/5 backdrop-blur-md
-                        border border-white/10
+                        bg-surface-50/50 dark:bg-white/5 backdrop-blur-md
+                        border border-black/10 dark:border-white/10
                         overflow-hidden
                         cursor-pointer
                         transition-all duration-300
-                        hover:bg-white/10 hover:border-white/20
-                        focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/20
+                        hover:bg-black/5 dark:hover:bg-white/10 dark:hover:border-white/20
+                        focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20
                         group
                     "
                 >
@@ -439,22 +466,66 @@ export default function App() {
                         <div className="
                             absolute inset-0 z-20
                             flex items-center justify-center
-                            bg-black/50 rounded-3xl
+                            bg-white/80 dark:bg-black/50 rounded-3xl
                             opacity-0 group-hover:opacity-100
                             transition-opacity duration-200
                         ">
                             <div className="flex flex-col items-center gap-2">
                                 <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                                     <svg
-                                        className="w-6 h-6 text-red-500"
+                                        className="w-6 h-6 text-red-600 dark:text-red-500"
                                         fill="currentColor"
                                         viewBox="0 0 24 24"
                                     >
                                         <rect x="6" y="6" width="12" height="12" rx="1" />
                                     </svg>
                                 </div>
-                                <span className="text-sm text-red-400 font-medium">Tap to Stop</span>
+                                <span className="text-sm text-red-600 dark:text-red-400 font-medium">Tap to Stop</span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Status Text - Subtle & Clean */}
+                    <div className={`
+                absolute bottom-32
+                transition-all duration-500 ease-out
+                ${tts.isSpeaking
+                            ? "opacity-0 translate-y-4"
+                            : "opacity-100 translate-y-0"
+                        }
+            `}>
+                        <div className={`
+                    px-6 py-2.5 rounded-full
+                    backdrop-blur-md
+                    bg-white/40 dark:bg-white/5
+                    border border-white/20 dark:border-white/10
+                    shadow-sm
+                    flex items-center gap-2.5
+                `}>
+                            <div className={`
+                        w-2 h-2 rounded-full
+                        ${status === "listening" ? "bg-red-500 animate-pulse" :
+                                    status === "thinking" ? "bg-blue-400 animate-bounce" :
+                                        status === "speaking" ? "bg-purple-500 animate-pulse" :
+                                            "bg-emerald-400"
+                                }
+                    `} />
+                            <span className="text-sm font-medium tracking-wide text-surface-800 dark:text-white/90">
+                                {status === "listening" ? "Listening..." :
+                                    status === "thinking" ? "Thinking..." :
+                                        status === "speaking" ? "Speaking..." :
+                                            "Ready to chat"
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Interim Transcript (Live Speech to Text) */}
+                    {interimText && status === "listening" && (
+                        <div className="absolute bottom-48 w-full max-w-2xl px-4 text-center animate-fade-in-up">
+                            <p className="text-xl font-medium text-surface-900 dark:text-white/90 leading-relaxed drop-shadow-sm">
+                                {interimText}
+                            </p>
                         </div>
                     )}
 
@@ -487,7 +558,7 @@ export default function App() {
                                 transition={{ duration: 0.3 }}
                                 className="flex flex-col items-center gap-2 group-hover:opacity-30 transition-opacity"
                             >
-                                <span className="text-sm text-white/70 font-medium">
+                                <span className="text-sm text-surface-500 dark:text-white/70 font-medium">
                                     Listening...
                                 </span>
                                 <div className="h-10 w-72 flex items-center justify-center">
@@ -506,7 +577,7 @@ export default function App() {
                                 transition={{ duration: 0.3 }}
                                 className="flex flex-col items-center gap-2 group-hover:opacity-30 transition-opacity"
                             >
-                                <span className="text-sm text-white/70 font-medium">
+                                <span className="text-sm text-surface-500 dark:text-white/70 font-medium">
                                     Thinking...
                                 </span>
                                 <div className="flex gap-1">
@@ -527,7 +598,7 @@ export default function App() {
                                 transition={{ duration: 0.3 }}
                                 className="flex flex-col items-center gap-2 group-hover:opacity-30 transition-opacity"
                             >
-                                <span className="text-sm text-white/70 font-medium">
+                                <span className="text-sm text-surface-500 dark:text-white/70 font-medium">
                                     Speaking...
                                 </span>
                                 <div className="h-10 w-72 flex items-center justify-center">
@@ -541,7 +612,7 @@ export default function App() {
                 {/* Subtitle Text - Below control dock */}
                 <p
                     className={`
-                        max-w-2xl text-center text-xl font-medium text-white
+                        max-w-2xl text-center text-xl font-medium text-surface-900 dark:text-white
                         drop-shadow-md
                         transition-opacity duration-1000 ease-out
                         ${showText || isActive ? "opacity-100" : "opacity-0"}

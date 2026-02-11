@@ -11,9 +11,9 @@ import { memo } from "react";
 import { AVATAR } from "../../utils/constants";
 import { useChatStore } from "../../store/chatStore";
 import { RealisticAvatar } from "./RealisticAvatar";
-import { Cartoon3DAvatar } from "./Cartoon3DAvatar";
 import { PhotoAvatar } from "./PhotoAvatar";
 import { GifAvatar } from "./GifAvatar";
+import { StaticAvatar } from "./StaticAvatar";
 
 interface AvatarProps {
   isSpeaking: boolean;
@@ -66,9 +66,9 @@ export const Avatar = memo(function Avatar({ isSpeaking }: AvatarProps) {
       >
         {/* Avatar renderer */}
         {avatarType === "realistic" && <RealisticAvatar isSpeaking={isSpeaking} />}
-        {avatarType === "cartoon3d" && <Cartoon3DAvatar isSpeaking={isSpeaking} />}
         {avatarType === "photo" && <PhotoAvatar isSpeaking={isSpeaking} />}
         {avatarType === "gif" && <GifAvatar isSpeaking={isSpeaking} />}
+        {avatarType === "image" && <StaticAvatar isSpeaking={isSpeaking} />}
       </div>
     </figure>
   );

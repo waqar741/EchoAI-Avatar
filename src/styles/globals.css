@@ -1,16 +1,12 @@
+/* ─── Google Fonts ─── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
  * Voice Avatar App - Premium Dark Theme
- * 
- * Design System:
- *  • Rich dark palette with vibrant gradients
- *  • Glassmorphism effects
- *  • Modern Inter + DM Sans typography
- *  • Smooth, intentional animations
- */
 
 /* ─── CSS Custom Properties ─── */
 :root {
@@ -61,8 +57,7 @@ html {
 
 body {
   font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
-  background: var(--surface-bg);
-  color: #f1f5f9;
+  @apply bg-surface-50 text-surface-900 dark:bg-[#0a0a0f] dark:text-[#f1f5f9];
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;

@@ -25,7 +25,7 @@ export interface ChatResponse {
 export type AppStatus = "ready" | "listening" | "thinking" | "speaking" | "error";
 
 /** Avatar rendering mode. */
-export type AvatarType = "realistic" | "cartoon3d" | "photo" | "gif";
+export type AvatarType = "realistic" | "cartoon3d" | "photo" | "gif" | "image";
 
 /** Stored conversation entry for the UI list. */
 export interface ConversationEntry {

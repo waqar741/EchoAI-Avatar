@@ -54,7 +54,7 @@ export const MicButton = memo(function MicButton({
           disabled:pointer-events-none disabled:opacity-40
           ${isListening
             ? "bg-speak text-white shadow-glow-red scale-110"
-            : "bg-white/10 text-white hover:bg-white/20 hover:scale-110 active:scale-95"
+            : "bg-surface-200 text-surface-900 hover:bg-surface-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 hover:scale-110 active:scale-95"
           }
         `}
         style={{ touchAction: "manipulation" }}

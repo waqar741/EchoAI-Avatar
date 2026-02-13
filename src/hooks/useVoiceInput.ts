@@ -104,8 +104,24 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
       // Update ref so onend can save it
       currentSessionFinalRef.current = sessionFinal;
 
-      // Full transcript = Previous Sessions + Current Session Final
-      const fullFinal = (accumulatedRef.current + " " + sessionFinal).trim();
+      // Deduplication Logic:
+      // On Android/Mobile, sometimes the browser keeps the PREVIOUS session's text 
+      // in the NEW session's results. We check if the new session starts with the old one.
+      const accum = accumulatedRef.current.trim();
+      const accumLower = accum.toLowerCase();
+      const sessionLower = sessionFinal.toLowerCase();
+
+      let fullFinal = "";
+
+      if (accum && sessionLower.startsWith(accumLower)) {
+        // Overlap detected! The new session includes the old text.
+        // Trust the new session (it's the source of truth + usually has more)
+        fullFinal = sessionFinal;
+      } else {
+        // No overlap or disjoint. Standard behavior.
+        fullFinal = (accum + " " + sessionFinal).trim();
+      }
+
       setTranscript(fullFinal);
 
       // Interim Display = Full Final + Current Interim
@@ -127,8 +143,18 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
 
     rec.onend = () => {
       // Save valid final text from this session to accumulation
-      if (currentSessionFinalRef.current) {
-        accumulatedRef.current = (accumulatedRef.current + " " + currentSessionFinalRef.current).trim();
+      const final = currentSessionFinalRef.current.trim();
+      if (final) {
+        // Apply the same dedupe logic to saving
+        const accum = accumulatedRef.current.trim();
+        const accumLower = accum.toLowerCase();
+        const finalLower = final.toLowerCase();
+
+        if (accum && finalLower.startsWith(accumLower)) {
+          accumulatedRef.current = final;
+        } else {
+          accumulatedRef.current = (accum + " " + final).trim();
+        }
         currentSessionFinalRef.current = ""; // Reset for next session
       }
 

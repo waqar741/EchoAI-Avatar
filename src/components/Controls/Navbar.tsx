@@ -28,9 +28,9 @@ interface NavbarProps {
 const AVATAR_OPTIONS: { id: string; name: string; url: string; type: AvatarType }[] = [
     { id: "robo", name: "Female Robo", url: "/assets/avatars/robo-f.gif", type: "gif" },
     { id: "gradient-ai-robo", name: "Gradient Robo", url: "/assets/avatars/gradient-robo.gif", type: "gif" },
-    { id: "dashrath", name: "Professional Male", url: "/assets/dashrath.gif", type: "gif" },
-    { id: "humoied", name: "Humanoid", url: "/assets/humoied.gif", type: "gif" },
-    { id: "women", name: "Female Agent", url: "/assets/women.gif", type: "gif" },
+    { id: "dashrath", name: "Dashrath", url: "/assets/dashrath.gif", type: "gif" },
+    { id: "humoied", name: "Humoied", url: "/assets/humoied.gif", type: "gif" },
+    { id: "women", name: "Women", url: "/assets/women.gif", type: "gif" },
 ];
 
 // Sidebar Toggle Icon

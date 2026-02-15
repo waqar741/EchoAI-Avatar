@@ -65,6 +65,9 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
     }, silenceMs);
   }, [silenceMs, clearSilenceTimer]);
 
+  /* ─── Add interim ref to track latest partials ─── */
+  const currentSessionInterimRef = useRef("");
+
   // Lazily initialise recognition once.
   const getRecognition = useCallback((): SpeechRecognition | null => {
     if (recognitionRef.current) return recognitionRef.current;
@@ -78,16 +81,10 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
     rec.lang = "en-US";
     rec.maxAlternatives = 1;
 
-    // We need to track the final text from the CURRENT session separately from
-    // the accumulated text from PREVIOUS sessions (since we restart onend).
-    // This prevents duplication issues on mobile where resultIndex can be flaky.
-
     rec.onresult = (event) => {
       let sessionFinal = "";
       let sessionInterim = "";
 
-      // Reconstruct the full transcript for this session from event.results
-      // We iterate from 0 to ensure we capture the browser's full current state
       for (let i = 0; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
@@ -97,34 +94,14 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
         }
       }
 
-      // Normalize spaces
       sessionFinal = sessionFinal.trim();
       sessionInterim = sessionInterim.trim();
 
-      // Update ref so onend can save it
       currentSessionFinalRef.current = sessionFinal;
+      currentSessionInterimRef.current = sessionInterim;
 
-      // Deduplication Logic:
-      // On Android/Mobile, sometimes the browser keeps the PREVIOUS session's text 
-      // in the NEW session's results. We check if the new session starts with the old one.
-      const accum = accumulatedRef.current.trim();
-      const accumLower = accum.toLowerCase();
-      const sessionLower = sessionFinal.toLowerCase();
-
-      let fullFinal = "";
-
-      if (accum && sessionLower.startsWith(accumLower)) {
-        // Overlap detected! The new session includes the old text.
-        // Trust the new session (it's the source of truth + usually has more)
-        fullFinal = sessionFinal;
-      } else {
-        // No overlap or disjoint. Standard behavior.
-        fullFinal = (accum + " " + sessionFinal).trim();
-      }
-
+      const fullFinal = (accumulatedRef.current + " " + sessionFinal).trim();
       setTranscript(fullFinal);
-
-      // Interim Display = Full Final + Current Interim
       setInterimTranscript((fullFinal + " " + sessionInterim).trim());
 
       hasSpokenRef.current = true;
@@ -132,9 +109,7 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
     };
 
     rec.onerror = (event) => {
-      if (event.error === "no-speech" || event.error === "aborted") {
-        return;
-      }
+      if (event.error === "no-speech" || event.error === "aborted") return;
       console.error("[useVoiceInput] error:", event.error);
       intentionalStopRef.current = true;
       clearSilenceTimer();
@@ -142,29 +117,17 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
     };
 
     rec.onend = () => {
-      // Save valid final text from this session to accumulation
-      const final = currentSessionFinalRef.current.trim();
-      if (final) {
-        // Apply the same dedupe logic to saving
-        const accum = accumulatedRef.current.trim();
-        const accumLower = accum.toLowerCase();
-        const finalLower = final.toLowerCase();
-
-        if (accum && finalLower.startsWith(accumLower)) {
-          accumulatedRef.current = final;
-        } else {
-          accumulatedRef.current = (accum + " " + final).trim();
-        }
-        currentSessionFinalRef.current = ""; // Reset for next session
+      if (currentSessionFinalRef.current) {
+        accumulatedRef.current = (accumulatedRef.current + " " + currentSessionFinalRef.current).trim();
+        currentSessionFinalRef.current = "";
       }
+      currentSessionInterimRef.current = ""; // Clear interim on end
 
       if (!intentionalStopRef.current) {
         try {
           rec.start();
           return;
-        } catch {
-          // Fall through to stop
-        }
+        } catch { }
       }
       clearSilenceTimer();
       setIsListening(false);
@@ -182,6 +145,7 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
     }
     accumulatedRef.current = "";
     currentSessionFinalRef.current = "";
+    currentSessionInterimRef.current = "";
     intentionalStopRef.current = false;
     hasSpokenRef.current = false;
     setTranscript("");
@@ -197,17 +161,29 @@ export function useVoiceInput(opts: UseVoiceInputOptions = {}): UseVoiceInputRet
   const stopListening = useCallback((): string => {
     intentionalStopRef.current = true;
     clearSilenceTimer();
-    // Use abort() for immediate aggressive stop
+
+    // Construct final result BEFORE aborting/stopping to ensure we capture everything
+    const final = [
+      accumulatedRef.current,
+      currentSessionFinalRef.current,
+      currentSessionInterimRef.current
+    ].filter(Boolean).join(" ").trim();
+
     try {
       recognitionRef.current?.abort();
     } catch {
       recognitionRef.current?.stop();
     }
+
     setIsListening(false);
-    const final = accumulatedRef.current.trim();
     setInterimTranscript("");
+
+    // Reset refs appropriately
     accumulatedRef.current = "";
+    currentSessionFinalRef.current = "";
+    currentSessionInterimRef.current = "";
     hasSpokenRef.current = false;
+
     return final;
   }, [clearSilenceTimer]);
 
